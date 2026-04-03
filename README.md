@@ -296,10 +296,11 @@ This work builds on the Orion framework:
 
 ```bibtex
 @inproceedings{ebel2025orion,
-  title={Orion: A Fully Homomorphic Encryption Compiler for Private Deep Learning},
-  author={Ebel, Austin and Ozsoy, Karthik and Yigitoglu, Enes and Cammarota, Rosario and Maniatakos, Michail},
+  title={Orion: A Fully Homomorphic Encryption Framework for Deep Learning},
+  author={Ebel, Austin and Garimella, Karthik and Reagen, Brandon},
   booktitle={Proceedings of the 30th ACM International Conference on Architectural Support for Programming Languages and Operating Systems (ASPLOS'25)},
-  year={2025}
+  year={2025},
+  doi={10.1145/3676641.3716008}
 }
 ```
 
