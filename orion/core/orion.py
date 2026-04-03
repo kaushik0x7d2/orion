@@ -1,5 +1,7 @@
 import time
 import math
+import logging
+import threading
 from typing import Union, Dict, Any
 
 import yaml
@@ -11,43 +13,57 @@ from orion.nn.module import Module
 from orion.nn.linear import LinearTransform
 from orion.backend.lattigo import bindings as lgo
 from orion.backend.python import (
-    parameters, 
+    parameters,
     key_generator,
-    encoder, 
+    encoder,
     encryptor,
-    evaluator, 
-    poly_evaluator, 
+    evaluator,
+    poly_evaluator,
     lt_evaluator,
     bootstrapper
 )
 
-from .tracer import StatsTracker, OrionTracer 
+from .tracer import StatsTracker, OrionTracer
 from .fuser import Fuser
 from .network_dag import NetworkDAG
 from .auto_bootstrap import BootstrapSolver, BootstrapPlacer
 
+# Production modules
+from .memory import get_memory_stats, cleanup_all, MemoryTracker
+from .cache import FHECache
+from .parallel import PipelineExecutor, BatchProcessor
+from .config_validator import validate_ckks_params
+from .crypto_utils import CiphertextAuthenticator, KeyEncryptor
+
+logger = logging.getLogger("orion")
+
 
 class Scheme:
     """
-    This Scheme class drives most of the functionality in Orion. It 
-    configures and manages how our framework interfaces with FHE backends, 
-    and exposes this functionality to the user through attributes such as 
-    the encoder, evaluators (linear transform, polynomial, etc.) and 
-    bootstrappers. 
+    This Scheme class drives most of the functionality in Orion. It
+    configures and manages how our framework interfaces with FHE backends,
+    and exposes this functionality to the user through attributes such as
+    the encoder, evaluators (linear transform, polynomial, etc.) and
+    bootstrappers.
 
-    It also serves two important purposes required before running FHE 
-    inference: fitting the network and then compiling it. The fit() method 
-    runs cleartext forward passes through the network to determine per-layer 
-    input ranges, which are then used to fit polynomial approximations to 
-    common activation functions (e.g., SiLU, ReLU). 
+    It also serves two important purposes required before running FHE
+    inference: fitting the network and then compiling it. The fit() method
+    runs cleartext forward passes through the network to determine per-layer
+    input ranges, which are then used to fit polynomial approximations to
+    common activation functions (e.g., SiLU, ReLU).
 
-    The compile() function is responsible for all packing of data and 
-    determines a level management policy by running our automatic bootstrap 
-    placement algorithm. Once done, each Orion module is automatically 
-    assigned a level that can then be used in its compilation. This primarily 
-    includes generating the plaintexts needed for each linear transform. 
+    The compile() function is responsible for all packing of data and
+    determines a level management policy by running our automatic bootstrap
+    placement algorithm. Once done, each Orion module is automatically
+    assigned a level that can then be used in its compilation. This primarily
+    includes generating the plaintexts needed for each linear transform.
+
+    Thread safety: All public methods acquire _lock before accessing shared
+    state. The Go backend has its own per-module mutexes for FFI calls.
     """
-    
+
+    _lock = threading.Lock()
+
     def __init__(self):
         self.backend = None
         self.traced = None

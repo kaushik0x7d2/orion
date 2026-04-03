@@ -3,6 +3,7 @@ package main
 import (
 	"C"
 	"math"
+	"sync"
 	"unsafe"
 
 	"github.com/baahl-nyu/lattigo/v6/circuits/ckks/lintrans"
@@ -13,6 +14,7 @@ import (
 )
 
 var ltHeap = NewHeapAllocator()
+var ltMu sync.Mutex
 
 func AddLinearTransform(lt lintrans.LinearTransformation) int {
 	return ltHeap.Add(lt)
@@ -24,11 +26,17 @@ func RetrieveLinearTransform(id int) lintrans.LinearTransformation {
 
 //export DeleteLinearTransform
 func DeleteLinearTransform(id C.int) {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	ltHeap.Delete(int(id))
 }
 
 //export NewLinearTransformEvaluator
 func NewLinearTransformEvaluator() {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	scheme.LinEvaluator = lintrans.NewEvaluator(
 		ckks.NewEvaluator(*scheme.Params, scheme.EvalKeys))
 }
@@ -41,6 +49,9 @@ func GenerateLinearTransform(
 	bsgsRatio C.float,
 	ioModeC *C.char,
 ) C.int {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	ioMode := C.GoString(ioModeC)
 
 	// Unload diags data
@@ -83,7 +94,8 @@ func GenerateLinearTransform(
 		}
 	} else { // otherwise, generate diagonals here.
 		if err := lintrans.Encode(scheme.Encoder, diagonals, lt); err != nil {
-			panic(err)
+			lastError = err.Error()
+			return -1
 		}
 	}
 
@@ -94,6 +106,9 @@ func GenerateLinearTransform(
 
 //export EvaluateLinearTransform
 func EvaluateLinearTransform(transformID, ctxtID C.int) C.int {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	transform := RetrieveLinearTransform(int(transformID))
 	ctIn := RetrieveCiphertext(int(ctxtID))
 
@@ -105,7 +120,8 @@ func EvaluateLinearTransform(transformID, ctxtID C.int) C.int {
 
 	ctOut, err := scheme.LinEvaluator.EvaluateNew(ctIn, transform)
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -114,6 +130,9 @@ func EvaluateLinearTransform(transformID, ctxtID C.int) C.int {
 
 //export GetLinearTransformRotationKeys
 func GetLinearTransformRotationKeys(transformID C.int) (*C.int, C.ulong) {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	transform := RetrieveLinearTransform(int(transformID))
 	galEls := transform.GaloisElements(scheme.Params)
 
@@ -123,16 +142,23 @@ func GetLinearTransformRotationKeys(transformID C.int) (*C.int, C.ulong) {
 
 //export GenerateLinearTransformRotationKey
 func GenerateLinearTransformRotationKey(galEl C.int) {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	rotKey := scheme.KeyGen.GenGaloisKeyNew(uint64(galEl), scheme.SecretKey)
 	scheme.EvalKeys.GaloisKeys[uint64(galEl)] = rotKey
 }
 
 //export GenerateAndSerializeRotationKey
 func GenerateAndSerializeRotationKey(galEl C.int) (*C.char, C.ulong) {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	rotKey := scheme.KeyGen.GenGaloisKeyNew(uint64(galEl), scheme.SecretKey)
 	data, err := rotKey.MarshalBinary() // Marshal the key to binary
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return nil, 0
 	}
 
 	arrPtr, length := SliceToCArray(data, convertByteToCChar)
@@ -143,29 +169,38 @@ func GenerateAndSerializeRotationKey(galEl C.int) (*C.char, C.ulong) {
 func LoadRotationKey(
 	dataPtr *C.char, lenData C.ulong,
 	galEl C.ulong,
-) {
+) C.int {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	rotKeySerial := CArrayToByteSlice(unsafe.Pointer(dataPtr), uint64(lenData))
 
 	// Unmarshal the binary data into a GaloisKey
 	var rotKey rlwe.GaloisKey
 	if err := rotKey.UnmarshalBinary(rotKeySerial); err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	// Update our global map of evaluation keys to include what
 	// we just loaded. This will eventually get used by the
 	// current linear transform and then deleted from RAM.
 	scheme.EvalKeys.GaloisKeys[uint64(galEl)] = &rotKey
+	return 0
 }
 
 //export SerializeDiagonal
 func SerializeDiagonal(transformID, diagIdx C.int) (*C.char, C.ulong) {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	transform := RetrieveLinearTransform(int(transformID))
 	diag := transform.Vec[int(diagIdx)]
 
 	data, err := diag.MarshalBinary() // Marshal the diag to binary
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return nil, 0
 	}
 
 	// Since it will be saved to disk, we can delete it from our
@@ -181,19 +216,27 @@ func LoadPlaintextDiagonal(
 	dataPtr *C.char, lenData C.ulong,
 	transformID C.int,
 	diagIdx C.ulong,
-) {
+) C.int {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	transform := RetrieveLinearTransform(int(transformID))
 	diagSerial := CArrayToByteSlice(unsafe.Pointer(dataPtr), uint64(lenData))
 
 	var poly ringqp.Poly
 	if err := poly.UnmarshalBinary(diagSerial); err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 	transform.Vec[int(diagIdx)] = poly
+	return 0
 }
 
 //export RemovePlaintextDiagonals
 func RemovePlaintextDiagonals(transformID C.int) {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	linTransf := RetrieveLinearTransform(int(transformID))
 	for diag := range linTransf.Vec {
 		linTransf.Vec[diag] = ringqp.Poly{}
@@ -202,6 +245,9 @@ func RemovePlaintextDiagonals(transformID C.int) {
 
 //export RemoveRotationKeys
 func RemoveRotationKeys() {
+	ltMu.Lock()
+	defer ltMu.Unlock()
+
 	// We'll just update the linear transform evaluator to no longer have
 	// access to the Galois keys it had before. GC should do the rest.
 	scheme.EvalKeys = rlwe.NewMemEvaluationKeySet(scheme.RelinKey)

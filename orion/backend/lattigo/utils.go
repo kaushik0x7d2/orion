@@ -10,6 +10,21 @@ import (
 	"github.com/baahl-nyu/lattigo/v6/core/rlwe"
 )
 
+// lastError holds the most recent error message from a Go function.
+// Python callers should check this after any function that returns
+// a sentinel error value (e.g. -1 for ID-returning functions).
+var lastError string
+
+//export OrionGetLastError
+func OrionGetLastError() *C.char {
+	return C.CString(lastError)
+}
+
+//export OrionClearLastError
+func OrionClearLastError() {
+	lastError = ""
+}
+
 func convertCIntToInt(v C.int) int {
 	return int(v)
 }

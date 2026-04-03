@@ -2,6 +2,7 @@ package main
 
 import (
 	"C"
+	"sync"
 
 	"github.com/baahl-nyu/lattigo/v6/circuits/ckks/bootstrapping"
 	"github.com/baahl-nyu/lattigo/v6/circuits/ckks/polynomial"
@@ -30,6 +31,7 @@ type Scheme struct {
 }
 
 var scheme Scheme
+var schemeMu sync.Mutex
 
 //export NewScheme
 func NewScheme(
@@ -41,7 +43,10 @@ func NewScheme(
 	ringType *C.char,
 	keysPath *C.char,
 	ioMode *C.char,
-) {
+) C.int {
+	schemeMu.Lock()
+	defer schemeMu.Unlock()
+
 	// Convert LogQ and LogP to Go slices
 	logQ := CArrayToSlice(logQPtr, lenQ, convertCIntToInt)
 	logP := CArrayToSlice(logPPtr, lenP, convertCIntToInt)
@@ -63,7 +68,8 @@ func NewScheme(
 			Xs:              ring.Ternary{H: int(h)},
 			RingType:        ringT,
 		}); err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	keyGen := rlwe.NewKeyGenerator(params)
@@ -83,10 +89,14 @@ func NewScheme(
 		LinEvaluator:  nil,
 		Bootstrapper:  nil,
 	}
+	return 0
 }
 
 //export DeleteScheme
 func DeleteScheme() {
+	schemeMu.Lock()
+	defer schemeMu.Unlock()
+
 	scheme = Scheme{}
 
 	DeleteRotationKeys()

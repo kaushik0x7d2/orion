@@ -1,0 +1,18 @@
+ckks_params:
+  LogN: 14
+  LogQ: [45, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 45]
+  LogP: [46, 46, 46]
+  LogScale: 35
+  H: 192
+  RingType: Standard
+
+boot_params:
+  LogP: [46, 46, 46, 46]
+
+orion:
+  margin: 2
+  embedding_method: hybrid
+  backend: lattigo
+  fuse_modules: true
+  debug: false
+  io_mode: none
