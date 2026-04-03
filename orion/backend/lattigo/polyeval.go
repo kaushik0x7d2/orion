@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/baahl-nyu/lattigo/v6/circuits/ckks/minimax"
 	"github.com/baahl-nyu/lattigo/v6/circuits/ckks/polynomial"
@@ -16,6 +17,7 @@ import (
 
 var polyHeap = NewHeapAllocator()
 var minimaxSignMap = make(map[string][][]float64)
+var polyMu sync.Mutex
 
 func AddPoly(poly bignum.Polynomial) int {
 	return polyHeap.Add(poly)
@@ -31,6 +33,9 @@ func DeletePoly(polyID int) {
 
 //export NewPolynomialEvaluator
 func NewPolynomialEvaluator() {
+	polyMu.Lock()
+	defer polyMu.Unlock()
+
 	scheme.PolyEvaluator = polynomial.NewEvaluator(*scheme.Params, scheme.Evaluator)
 }
 
@@ -39,6 +44,9 @@ func GenerateMonomial(
 	coeffsPtr *C.float,
 	lenCoeffs C.int,
 ) C.int {
+	polyMu.Lock()
+	defer polyMu.Unlock()
+
 	coeffs := CArrayToSlice(coeffsPtr, lenCoeffs, convertCFloatToFloat)
 	poly := bignum.NewPolynomial(bignum.Monomial, coeffs, nil)
 
@@ -51,6 +59,9 @@ func GenerateChebyshev(
 	coeffsPtr *C.float,
 	lenCoeffs C.int,
 ) C.int {
+	polyMu.Lock()
+	defer polyMu.Unlock()
+
 	coeffs := CArrayToSlice(coeffsPtr, lenCoeffs, convertCFloatToFloat)
 	poly := bignum.NewPolynomial(
 		bignum.Chebyshev, coeffs, [2]float64{-1.0, 1.0})
@@ -63,8 +74,11 @@ func GenerateChebyshev(
 func EvaluatePolynomial(
 	ctInID C.int,
 	polyID C.int,
-	outScale C.ulong,
+	outScale C.ulonglong,
 ) C.int {
+	polyMu.Lock()
+	defer polyMu.Unlock()
+
 	poly := RetrievePoly(int(polyID))
 	ctIn := RetrieveCiphertext(int(ctInID))
 
@@ -76,7 +90,8 @@ func EvaluatePolynomial(
 		ctTmp, poly, rlwe.NewScale(uint64(outScale)),
 	)
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	ctOutID := PushCiphertext(res)
@@ -95,6 +110,9 @@ func GenerateMinimaxSignCoeffs(
 	logerr C.int,
 	debug C.int,
 ) (*C.double, C.ulong) {
+	polyMu.Lock()
+	defer polyMu.Unlock()
+
 	degrees := CArrayToSlice(degreesPtr, lenDegrees, convertCIntToInt)
 
 	// We'll eventually return this flattened list of coefficients

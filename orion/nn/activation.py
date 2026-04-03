@@ -54,9 +54,17 @@ class Quad(Module):
         return out
     
 
+MAX_CHEBYSHEV_DEGREE = 127
+
 class Chebyshev(Module):
     def __init__(self, degree: int, fn, within_composite=False):
         super().__init__()
+        if degree < 1:
+            raise ValueError(f"Chebyshev degree must be >= 1, got {degree}")
+        if degree > MAX_CHEBYSHEV_DEGREE:
+            raise ValueError(
+                f"Chebyshev degree {degree} exceeds maximum ({MAX_CHEBYSHEV_DEGREE}). "
+                f"High degrees cause exponential memory/time in FHE evaluation.")
         self.degree = degree
         self.fn = fn
         self.within_composite = within_composite

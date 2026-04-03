@@ -2,6 +2,7 @@ package main
 
 import (
 	"C"
+	"sync"
 
 	"github.com/baahl-nyu/lattigo/v6/core/rlwe"
 	"github.com/baahl-nyu/lattigo/v6/schemes/ckks"
@@ -9,9 +10,13 @@ import (
 
 var liveRotKeys = make(map[uint64]*rlwe.GaloisKey)
 var savedRotKeys = []uint64{}
+var evalMu sync.Mutex
 
 //export NewEvaluator
 func NewEvaluator() {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	scheme.Evaluator = ckks.NewEvaluator(
 		*scheme.Params, rlwe.NewMemEvaluationKeySet(scheme.RelinKey))
 
@@ -26,12 +31,13 @@ func AddPo2RotationKeys() {
 	maxSlots := scheme.Params.MaxSlots()
 	// Generate all positive power-of-two rotation keys
 	for i := 1; i < maxSlots; i *= 2 {
-		AddRotationKey(C.int(i))
+		addRotationKey(C.int(i))
 	}
 }
 
-//export AddRotationKey
-func AddRotationKey(rotation C.int) {
+// addRotationKey is the internal helper that does the actual work.
+// Callers must already hold evalMu.
+func addRotationKey(rotation C.int) {
 	galEl := scheme.Params.GaloisElement(int(rotation))
 
 	// Generate the required rotation key if it doesn't exist
@@ -45,12 +51,24 @@ func AddRotationKey(rotation C.int) {
 	}
 }
 
+//export AddRotationKey
+func AddRotationKey(rotation C.int) {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
+	addRotationKey(rotation)
+}
+
 //export Negate
 func Negate(ciphertextID C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ctOut, err := scheme.Evaluator.MulNew(ctIn, -1.0)
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -59,8 +77,11 @@ func Negate(ciphertextID C.int) C.int {
 
 //export Rotate
 func Rotate(ciphertextID, amount C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
-	AddRotationKey(amount)
+	addRotationKey(amount)
 	scheme.Evaluator.Rotate(ctIn, int(amount), ctIn)
 
 	return ciphertextID
@@ -68,12 +89,16 @@ func Rotate(ciphertextID, amount C.int) C.int {
 
 //export RotateNew
 func RotateNew(ciphertextID, amount C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
-	AddRotationKey(amount)
+	addRotationKey(amount)
 
 	ctOut, err := scheme.Evaluator.RotateNew(ctIn, int(amount))
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -82,6 +107,9 @@ func RotateNew(ciphertextID, amount C.int) C.int {
 
 //export Rescale
 func Rescale(ciphertextID C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	scheme.Evaluator.Rescale(ctIn, ctIn)
 
@@ -90,6 +118,9 @@ func Rescale(ciphertextID C.int) C.int {
 
 //export RescaleNew
 func RescaleNew(ciphertextID C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	scheme.Evaluator.Rescale(ctIn, ctIn)
 	ctOut := ctIn.CopyNew()
@@ -100,6 +131,9 @@ func RescaleNew(ciphertextID C.int) C.int {
 
 //export AddScalar
 func AddScalar(ciphertextID C.int, scalar C.float) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	scheme.Evaluator.Add(ctIn, float64(scalar), ctIn)
 
@@ -108,10 +142,14 @@ func AddScalar(ciphertextID C.int, scalar C.float) C.int {
 
 //export AddScalarNew
 func AddScalarNew(ciphertextID C.int, scalar C.float) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ctOut, err := scheme.Evaluator.AddNew(ctIn, float64(scalar))
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -120,6 +158,9 @@ func AddScalarNew(ciphertextID C.int, scalar C.float) C.int {
 
 //export SubScalar
 func SubScalar(ciphertextID C.int, scalar C.float) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	scheme.Evaluator.Sub(ctIn, float64(scalar), ctIn)
 
@@ -128,10 +169,14 @@ func SubScalar(ciphertextID C.int, scalar C.float) C.int {
 
 //export SubScalarNew
 func SubScalarNew(ciphertextID C.int, scalar C.float) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ctOut, err := scheme.Evaluator.SubNew(ctIn, float64(scalar))
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -140,6 +185,9 @@ func SubScalarNew(ciphertextID C.int, scalar C.float) C.int {
 
 //export MulScalarInt
 func MulScalarInt(ciphertextID C.int, scalar C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	scheme.Evaluator.Mul(ctIn, int(scalar), ctIn)
 
@@ -148,10 +196,14 @@ func MulScalarInt(ciphertextID C.int, scalar C.int) C.int {
 
 //export MulScalarIntNew
 func MulScalarIntNew(ciphertextID C.int, scalar C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ctOut, err := scheme.Evaluator.MulNew(ctIn, int(scalar))
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -160,6 +212,9 @@ func MulScalarIntNew(ciphertextID C.int, scalar C.int) C.int {
 
 //export MulScalarFloat
 func MulScalarFloat(ciphertextID C.int, scalar C.float) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	scheme.Evaluator.Mul(ctIn, float64(scalar), ctIn)
 
@@ -168,10 +223,14 @@ func MulScalarFloat(ciphertextID C.int, scalar C.float) C.int {
 
 //export MulScalarFloatNew
 func MulScalarFloatNew(ciphertextID C.int, scalar C.float) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ctOut, err := scheme.Evaluator.MulNew(ctIn, float64(scalar))
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -180,6 +239,9 @@ func MulScalarFloatNew(ciphertextID C.int, scalar C.float) C.int {
 
 //export AddPlaintext
 func AddPlaintext(ciphertextID, plaintextID C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ptIn := RetrievePlaintext(int(plaintextID))
 	scheme.Evaluator.Add(ctIn, ptIn, ctIn)
@@ -189,12 +251,16 @@ func AddPlaintext(ciphertextID, plaintextID C.int) C.int {
 
 //export AddPlaintextNew
 func AddPlaintextNew(ciphertextID, plaintextID C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ptIn := RetrievePlaintext(int(plaintextID))
 
 	ctOut, err := scheme.Evaluator.AddNew(ctIn, ptIn)
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -203,6 +269,9 @@ func AddPlaintextNew(ciphertextID, plaintextID C.int) C.int {
 
 //export SubPlaintext
 func SubPlaintext(ciphertextID, plaintextID C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ptIn := RetrievePlaintext(int(plaintextID))
 	scheme.Evaluator.Sub(ctIn, ptIn, ctIn)
@@ -212,12 +281,16 @@ func SubPlaintext(ciphertextID, plaintextID C.int) C.int {
 
 //export SubPlaintextNew
 func SubPlaintextNew(ciphertextID, plaintextID C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ptIn := RetrievePlaintext(int(plaintextID))
 
 	ctOut, err := scheme.Evaluator.SubNew(ctIn, ptIn)
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -226,6 +299,9 @@ func SubPlaintextNew(ciphertextID, plaintextID C.int) C.int {
 
 //export MulPlaintext
 func MulPlaintext(ciphertextID, plaintextID C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ptIn := RetrievePlaintext(int(plaintextID))
 	scheme.Evaluator.Mul(ctIn, ptIn, ctIn)
@@ -235,12 +311,16 @@ func MulPlaintext(ciphertextID, plaintextID C.int) C.int {
 
 //export MulPlaintextNew
 func MulPlaintextNew(ciphertextID, plaintextID C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn := RetrieveCiphertext(int(ciphertextID))
 	ptIn := RetrievePlaintext(int(plaintextID))
 
 	ctOut, err := scheme.Evaluator.MulNew(ctIn, ptIn)
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -249,6 +329,9 @@ func MulPlaintextNew(ciphertextID, plaintextID C.int) C.int {
 
 //export AddCiphertext
 func AddCiphertext(ctID0, ctID1 C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn0 := RetrieveCiphertext(int(ctID0))
 	ctIn1 := RetrieveCiphertext((int(ctID1)))
 	scheme.Evaluator.Add(ctIn0, ctIn1, ctIn0)
@@ -258,12 +341,16 @@ func AddCiphertext(ctID0, ctID1 C.int) C.int {
 
 //export AddCiphertextNew
 func AddCiphertextNew(ctID0, ctID1 C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn0 := RetrieveCiphertext(int(ctID0))
 	ctIn1 := RetrieveCiphertext((int(ctID1)))
 
 	ctOut, err := scheme.Evaluator.AddNew(ctIn0, ctIn1)
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -272,6 +359,9 @@ func AddCiphertextNew(ctID0, ctID1 C.int) C.int {
 
 //export SubCiphertext
 func SubCiphertext(ctID0, ctID1 C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn0 := RetrieveCiphertext(int(ctID0))
 	ctIn1 := RetrieveCiphertext((int(ctID1)))
 	scheme.Evaluator.Sub(ctIn0, ctIn1, ctIn0)
@@ -281,12 +371,16 @@ func SubCiphertext(ctID0, ctID1 C.int) C.int {
 
 //export SubCiphertextNew
 func SubCiphertextNew(ctID0, ctID1 C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn0 := RetrieveCiphertext(int(ctID0))
 	ctIn1 := RetrieveCiphertext((int(ctID1)))
 
 	ctOut, err := scheme.Evaluator.SubNew(ctIn0, ctIn1)
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)
@@ -295,6 +389,9 @@ func SubCiphertextNew(ctID0, ctID1 C.int) C.int {
 
 //export MulRelinCiphertext
 func MulRelinCiphertext(ctID0, ctID1 C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn0 := RetrieveCiphertext(int(ctID0))
 	ctIn1 := RetrieveCiphertext((int(ctID1)))
 	scheme.Evaluator.MulRelin(ctIn0, ctIn1, ctIn0)
@@ -304,12 +401,16 @@ func MulRelinCiphertext(ctID0, ctID1 C.int) C.int {
 
 //export MulRelinCiphertextNew
 func MulRelinCiphertextNew(ctID0, ctID1 C.int) C.int {
+	evalMu.Lock()
+	defer evalMu.Unlock()
+
 	ctIn0 := RetrieveCiphertext(int(ctID0))
 	ctIn1 := RetrieveCiphertext((int(ctID1)))
 
 	ctOut, err := scheme.Evaluator.MulRelinNew(ctIn0, ctIn1)
 	if err != nil {
-		panic(err)
+		lastError = err.Error()
+		return -1
 	}
 
 	idx := PushCiphertext(ctOut)

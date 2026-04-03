@@ -4,13 +4,13 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "orion-fhe"
-version = "1.0.2"
-description = "A Fully Homomorphic Encryption Framework for Deep Learning"
+version = "1.1.0"
+description = "A Hardened Fully Homomorphic Encryption Framework for Deep Learning"
 authors = [
     {name = "Austin Ebel", email = "abe5240@nyu.edu"}
 ]
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.9,<3.14"
 dependencies = [
     "PyYAML>=6.0",
     "torch>=2.2.0",
@@ -21,7 +21,14 @@ dependencies = [
     "matplotlib>=3.1.0",
     "h5py>=3.5.0",
     "certifi>=2024.2.2",
+    "cryptography>=41.0.0",
 ]
+
+[project.optional-dependencies]
+server = ["flask>=3.0.0"]
+grpc = ["grpcio>=1.60.0", "grpcio-tools>=1.60.0"]
+all = ["flask>=3.0.0", "grpcio>=1.60.0", "grpcio-tools>=1.60.0"]
+dev = ["pytest>=7.0.0", "sklearn"]
 
 [tool.poetry]
 packages = [{include = "orion"}]

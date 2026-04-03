@@ -134,8 +134,10 @@ class LattigoLibrary:
     def setup_bindings(self, orion_params):
         """
         Declares the functions from the Lattigo shared library and sets their
-        argument and return types.
+        argument and return types. Enables automatic FFI error checking on
+        all functions that can fail.
         """
+        self.setup_error_handling()
         self.setup_scheme(orion_params)
         self.setup_tensor_binds()
         self.setup_key_generator()
@@ -146,11 +148,47 @@ class LattigoLibrary:
         self.setup_lt_evaluator()
         self.setup_bootstrapper()
 
+        # Wrap all sentinel-returning functions with automatic error checking.
+        from orion.core.error_handling import wrap_ffi_error_checking
+        wrap_ffi_error_checking(self)
+
+    def setup_error_handling(self):
+        """Set up bindings for the Go-side error reporting functions."""
+        self.GetLastError = LattigoFunction(
+            self.lib.OrionGetLastError,
+            argtypes=[],
+            restype=ctypes.c_char_p
+        )
+        self.ClearLastError = LattigoFunction(
+            self.lib.OrionClearLastError,
+            argtypes=[],
+            restype=None
+        )
+
+    def get_last_error(self):
+        """Return the last error message from the Go library, or None."""
+        err = self.GetLastError()
+        if err:
+            msg = err if isinstance(err, str) else err.decode('utf-8')
+            return msg if msg else None
+        return None
+
+    def clear_last_error(self):
+        """Clear the last error stored in the Go library."""
+        self.ClearLastError()
+
+    def check_error(self):
+        """Check for a Go-side error; raise RuntimeError if one exists."""
+        err = self.get_last_error()
+        if err:
+            self.clear_last_error()
+            raise RuntimeError(f"Lattigo error: {err}")
+
     def setup_scheme(self, orion_params):
         self.NewScheme = LattigoFunction(
             self.lib.NewScheme,
             argtypes=[
-                ctypes.c_int, 
+                ctypes.c_int,
                 ctypes.POINTER(ctypes.c_int), ctypes.c_int,
                 ctypes.POINTER(ctypes.c_int), ctypes.c_int,
                 ctypes.c_int,
@@ -159,7 +197,7 @@ class LattigoLibrary:
                 ctypes.c_char_p,
                 ctypes.c_char_p,
             ],
-            restype=None
+            restype=ctypes.c_int
         )
 
         self.DeleteScheme = LattigoFunction(
@@ -202,20 +240,20 @@ class LattigoLibrary:
         self.GetPlaintextScale = LattigoFunction(
             self.lib.GetPlaintextScale,
             argtypes=[ctypes.c_int],
-            restype=ctypes.c_ulong
+            restype=ctypes.c_ulonglong
         )
 
         self.GetCiphertextScale = LattigoFunction(
             self.lib.GetCiphertextScale,
             argtypes=[ctypes.c_int],
-            restype=ctypes.c_ulong
+            restype=ctypes.c_ulonglong
         )
 
         self.SetPlaintextScale = LattigoFunction(
             self.lib.SetPlaintextScale,
             argtypes=[
                 ctypes.c_int,
-                ctypes.c_ulong,
+                ctypes.c_ulonglong,
             ],
             restype=None
         )
@@ -224,7 +262,7 @@ class LattigoLibrary:
             self.lib.SetCiphertextScale,
             argtypes=[
                 ctypes.c_int,
-                ctypes.c_ulong,
+                ctypes.c_ulonglong,
             ],
             restype=None
         )
@@ -323,7 +361,7 @@ class LattigoLibrary:
         self.LoadSecretKey = LattigoFunction(
             self.lib.LoadSecretKey,
             argtypes=[ctypes.POINTER(ctypes.c_ubyte), ctypes.c_ulong],
-            restype=None
+            restype=ctypes.c_int
         )
 
     def setup_encoder(self):
@@ -338,7 +376,7 @@ class LattigoLibrary:
             argtypes=[
                 ctypes.POINTER(ctypes.c_float), ctypes.c_int,
                 ctypes.c_int,
-                ctypes.c_ulong,
+                ctypes.c_ulonglong,
             ],
             restype=ctypes.c_int
         )
@@ -369,6 +407,18 @@ class LattigoLibrary:
         self.Decrypt = LattigoFunction(
             self.lib.Decrypt,
             argtypes=[ctypes.c_int],
+            restype=ctypes.c_int
+        )
+
+        self.SerializeCiphertext = LattigoFunction(
+            self.lib.SerializeCiphertext,
+            argtypes=[ctypes.c_int],
+            restype=ArrayResultByte
+        )
+
+        self.LoadCiphertext = LattigoFunction(
+            self.lib.LoadCiphertext,
+            argtypes=[ctypes.POINTER(ctypes.c_ubyte), ctypes.c_ulong],
             restype=ctypes.c_int
         )
 
@@ -625,7 +675,7 @@ class LattigoLibrary:
             argtypes=[
                 ctypes.c_int,
                 ctypes.c_int,
-                ctypes.c_ulong,
+                ctypes.c_ulonglong,
             ],
             restype=ctypes.c_int
         )
@@ -700,7 +750,7 @@ class LattigoLibrary:
                 ctypes.POINTER(ctypes.c_ubyte), ctypes.c_ulong,
                 ctypes.c_ulong,
             ],
-            restype=None
+            restype=ctypes.c_int
         )
 
         self.SerializeDiagonal = LattigoFunction(
@@ -719,7 +769,7 @@ class LattigoLibrary:
                 ctypes.c_int,
                 ctypes.c_ulong,
             ],
-            restype=None
+            restype=ctypes.c_int
         )
 
         self.RemovePlaintextDiagonals = LattigoFunction(
@@ -740,8 +790,8 @@ class LattigoLibrary:
             argtypes=[
                 ctypes.POINTER(ctypes.c_int), ctypes.c_int, # logPs
                 ctypes.c_int, # slots
-            ], 
-            restype=None
+            ],
+            restype=ctypes.c_int
         )
 
         self.Bootstrap = LattigoFunction(

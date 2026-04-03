@@ -1,0 +1,81 @@
+// Protocol Buffer definition for Orion FHE inference service.
+//
+// gRPC is preferred over REST/JSON for FHE because:
+//   - Ciphertexts are 2.5MB binary blobs; base64 adds 33% overhead
+//   - Protobuf handles binary natively with zero-copy semantics
+//   - gRPC streaming enables pipelining of batch requests
+//   - Built-in health checks and deadline propagation
+//
+// Compile with:
+//   python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. orion_fhe.proto
+
+syntax = "proto3";
+
+package orion;
+
+// The main FHE inference service.
+service OrionFHE {
+    // Get server info (parameters, model name, input level).
+    rpc GetInfo (InfoRequest) returns (InfoResponse);
+
+    // Run encrypted inference on a single sample.
+    rpc Predict (PredictRequest) returns (PredictResponse);
+
+    // Stream multiple predictions (batch inference).
+    rpc PredictBatch (stream PredictRequest) returns (stream PredictResponse);
+
+    // Health check.
+    rpc HealthCheck (HealthRequest) returns (HealthResponse);
+}
+
+message InfoRequest {}
+
+message InfoResponse {
+    int32 input_level = 1;
+    string model_name = 2;
+    string status = 3;
+    int32 num_features = 4;
+    int32 num_classes = 5;
+}
+
+message PredictRequest {
+    // Serialized ciphertexts as raw bytes (no base64 overhead).
+    repeated bytes ciphertexts = 1;
+
+    // Tensor shape metadata.
+    repeated int32 shape = 2;
+    repeated int32 on_shape = 3;
+
+    // Optional HMAC for authentication.
+    string hmac = 4;
+
+    // Client-assigned request ID for tracking.
+    string request_id = 5;
+}
+
+message PredictResponse {
+    // Encrypted result ciphertexts.
+    repeated bytes ciphertexts = 1;
+    repeated int32 shape = 2;
+    repeated int32 on_shape = 3;
+
+    // Server-computed HMAC.
+    string hmac = 4;
+
+    // Timing.
+    float inference_time_seconds = 5;
+    string request_id = 6;
+
+    // Error info (empty if success).
+    string error = 7;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+    string status = 1;  // "serving", "not_serving"
+    int32 live_ciphertexts = 2;
+    int32 live_plaintexts = 3;
+    float uptime_seconds = 4;
+    int32 requests_served = 5;
+}

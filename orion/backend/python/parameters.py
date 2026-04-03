@@ -117,7 +117,20 @@ class NewParameters:
         )
         self.orion_params = OrionParameters(**orion_params)
 
-        # Finally, we'll delete existing keys/diagonals if the user  
+        # Validate CKKS parameters against HE Standard security bounds.
+        from orion.core.config_validator import validate_ckks_params
+        validate_ckks_params(
+            logn=self.ckks_params.logn,
+            logq=self.ckks_params.logq,
+            logp=self.ckks_params.logp,
+            logscale=self.ckks_params.logscale,
+            h=self.ckks_params.h,
+            boot_logp=self.ckks_params.boot_logp,
+            min_security=128,
+            strict=True,
+        )
+
+        # Finally, we'll delete existing keys/diagonals if the user
         # specifies to overwrite them.
         if self.get_io_mode() == "save" and self.io_paths_exist():
             self.reset_stored_keys()
@@ -172,13 +185,33 @@ class NewParameters:
     def get_embedding_method(self):
         return self.orion_params.embedding_method.lower()
 
+    def _validate_path(self, path: str) -> str:
+        """Validate that the resolved path stays within the working directory."""
+        base_dir = os.path.realpath(os.getcwd())
+        resolved = os.path.realpath(os.path.join(base_dir, path))
+        if not resolved.startswith(base_dir + os.sep) and resolved != base_dir:
+            raise ValueError(
+                f"Path traversal detected: '{path}' resolves outside "
+                f"the working directory."
+            )
+        return resolved
+
     def get_diags_path(self):
         path = self.orion_params.diags_path
-        return os.path.abspath(os.path.join(os.getcwd(), path))
+        if not path:
+            return ""
+        # Only validate paths that will actually be used (save/load mode).
+        if self.get_io_mode() != "none":
+            return self._validate_path(path)
+        return path
 
     def get_keys_path(self):
         path = self.orion_params.keys_path
-        return os.path.abspath(os.path.join(os.getcwd(), path))
+        if not path:
+            return ""
+        if self.get_io_mode() != "none":
+            return self._validate_path(path)
+        return path
 
     def get_io_mode(self):
         return self.orion_params.io_mode.lower()
@@ -187,14 +220,14 @@ class NewParameters:
         return self.ckks_params.boot_logp
 
     def io_paths_exist(self):
-        return bool(self.get_diags_path()) and bool(self.get_keys_path())
+        return bool(self.orion_params.diags_path) and bool(self.orion_params.keys_path)
 
     def reset_stored_file(self, path: str, file_type: str):
         if self.get_io_mode() == "save" and path:
-            print(f"Deleting existing {file_type} at {path}")
-            abs_path = os.path.abspath(os.path.join(os.getcwd(), path))
-            if os.path.exists(abs_path):
-                os.remove(abs_path)
+            validated_path = self._validate_path(path)
+            print(f"Deleting existing {file_type} at {validated_path}")
+            if os.path.exists(validated_path):
+                os.remove(validated_path)
 
     def reset_stored_diags(self):
         self.reset_stored_file(self.get_diags_path(), "diagonals")

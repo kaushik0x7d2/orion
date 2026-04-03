@@ -206,3 +206,17 @@ go.work.sum
 
 # env file
 .env
+
+# Orion demo generated files
+demo/*.pt
+demo/*.npz
+demo/keys/
+demo/benchmark_results.json
+demo/*_pb2.py
+demo/*_pb2_grpc.py
+
+# Orion cache
+.orion_cache/
+
+# Encrypted key files
+*.key.enc
