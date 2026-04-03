@@ -2,7 +2,7 @@
 
 A production-hardened version of [Orion](https://github.com/baahl-nyu/orion) (ASPLOS'25 Best Paper), a PyTorch-integrated Fully Homomorphic Encryption framework that enables neural network inference on encrypted data.
 
-**What's new in v1.1.0:** 8 vulnerability fixes (including a critical Windows portability bug), 10 production features (HuggingFace conversion, FHE transformer layers), 66 automated tests, and 4 inference demos. See [HARDENING.md](HARDENING.md) for the full technical report.
+**What's new in v1.1.0:** 8 vulnerability fixes (including a critical Windows portability bug), 10 production features (HuggingFace conversion, FHE transformer layers), 163 automated tests (including 88 adversarial/fuzz tests), security overhead benchmarks, and 7 demos. See [HARDENING.md](HARDENING.md) for the full technical report.
 
 ---
 
@@ -70,7 +70,7 @@ FHE Accuracy: 5/5 (100%)
 
 ```bash
 pytest tests/ -v
-# 66 passed in 9.8s
+# 163 passed in 103s
 ```
 
 ---
@@ -221,6 +221,7 @@ enc.encrypt_to_file(sk_bytes, "secret.key.enc")
 | Benchmark | Heart Disease (54 samples) | 81.5% FHE | 5.14s avg | `python demo/benchmark.py` |
 | HuggingFace | Iris MLP (SiLU) | 93% clear, 80% FHE | 2.9s/sample | `python demo/huggingface_demo.py` |
 | Transformer | Iris PolySoftmax p=4 | 89% cleartext | N/A (cleartext) | `python demo/transformer_demo.py` |
+| Security Benchmarks | All hardening features | 0.008% overhead | 411μs/inference | `python demo/security_benchmarks.py` |
 
 *On 5-sample subset. Full 54-sample accuracy is 81.5%.
 
@@ -279,10 +280,12 @@ demo/
 ├── server.py / client.py     # REST client-server
 ├── grpc_server.py / grpc_client.py  # gRPC (production)
 ├── benchmark.py              # Paper-ready benchmarks
+├── security_benchmarks.py    # Security overhead measurements
 ├── huggingface_demo.py       # HuggingFace model conversion demo
 └── transformer_demo.py       # FHE-compatible transformer demo
 tests/
-└── test_hardening.py         # 66 automated tests
+├── test_hardening.py         # 66 unit tests (security, crypto, integration)
+└── test_adversarial.py       # 88 adversarial & fuzz tests
 ```
 
 ---

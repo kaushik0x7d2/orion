@@ -10,7 +10,7 @@
 
 # C extensions
 *.so
-*.h
+orion/backend/lattigo/*.h
 
 # Distribution / packaging
 .Python
@@ -212,6 +212,7 @@ demo/*.pt
 demo/*.npz
 demo/keys/
 demo/benchmark_results.json
+demo/security_benchmark_results.json
 demo/*_pb2.py
 demo/*_pb2_grpc.py
 
