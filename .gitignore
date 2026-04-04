@@ -221,3 +221,6 @@ demo/*_pb2_grpc.py
 
 # Encrypted key files
 *.key.enc
+
+# Paper (unpublished)
+paper/
