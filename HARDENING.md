@@ -2,7 +2,7 @@
 
 > **From Research Prototype to Deployable System: Hardening an FHE Framework for Private Neural Inference**
 
-This document describes the systematic hardening of [Orion](https://github.com/baahl-nyu/orion), an ASPLOS'25 Best Paper Award-winning Fully Homomorphic Encryption (FHE) framework for deep learning inference. We identified and fixed **8 vulnerabilities**, added **10 production features**, and validated correctness across **2 medical inference models** with **163 automated tests** (including 88 adversarial/fuzz tests). Security overhead benchmarks show all hardening adds just **0.008%** to FHE inference time.
+This document describes the systematic hardening of [Orion](https://github.com/baahl-nyu/orion), an ASPLOS'25 Best Paper Award-winning Fully Homomorphic Encryption (FHE) framework for deep learning inference. We identified and fixed **8 vulnerabilities**, added **10 production features**, and validated correctness across **2 medical inference models** with **163 automated tests** (including 88 adversarial tests). Security overhead benchmarks show all hardening adds just **0.009%** to FHE inference time.
 
 ---
 

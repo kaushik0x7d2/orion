@@ -33,14 +33,14 @@
 - REST client-server (Flask)
 - gRPC client-server (production)
 - Paper-ready benchmarks
-- Security overhead benchmarks (all hardening features: 0.008% of FHE inference time)
+- Security overhead benchmarks (all hardening features: 0.009% of FHE inference time)
 - HuggingFace model conversion (Iris MLP → FHE, compatibility checker, activation variety)
 - Transformer FHE demo (PolySoftmax training, compatibility analysis, LayerNorm conversion)
 
 ### Testing
 - 163 automated tests (all passing on Windows 11 / Python 3.13)
 - 66 unit tests: config validation, path traversal, error handling, memory management, HMAC auth, key encryption, polynomial bounds, model caching, Windows portability, HuggingFace integration, transformer layers
-- 88 adversarial/fuzz tests: ciphertext tampering detection, key encryption robustness, config injection prevention, path traversal attack patterns, FFI boundary fuzzing, memory exhaustion resistance, polynomial bounds fuzzing, transformer edge cases, cache poisoning, concurrent access safety, crypto edge cases
+- 88 adversarial tests: ciphertext tampering detection, key encryption robustness, config injection prevention, path traversal attack patterns, FFI boundary fuzzing, memory exhaustion resistance, polynomial bounds fuzzing, transformer edge cases, cache poisoning, concurrent access safety, crypto edge cases
 
 ### Other Changes
 - Version bumped to 1.1.0

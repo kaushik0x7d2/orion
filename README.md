@@ -2,7 +2,7 @@
 
 A production-hardened version of [Orion](https://github.com/baahl-nyu/orion) (ASPLOS'25 Best Paper), a PyTorch-integrated Fully Homomorphic Encryption framework that enables neural network inference on encrypted data.
 
-**What's new in v1.1.0:** 8 vulnerability fixes (including a critical Windows portability bug), 10 production features (HuggingFace conversion, FHE transformer layers), 163 automated tests (including 88 adversarial/fuzz tests), security overhead benchmarks, and 7 demos. See [HARDENING.md](HARDENING.md) for the full technical report.
+**What's new in v1.1.0:** 8 vulnerability fixes (including a critical Windows portability bug), 10 production features (HuggingFace conversion, FHE transformer layers), 163 automated tests (including 88 adversarial tests), security overhead benchmarks, and 7 demos. See [HARDENING.md](HARDENING.md) for the full technical report.
 
 ---
 
@@ -221,7 +221,7 @@ enc.encrypt_to_file(sk_bytes, "secret.key.enc")
 | Benchmark | Heart Disease (54 samples) | 81.5% FHE | 5.14s avg | `python demo/benchmark.py` |
 | HuggingFace | Iris MLP (SiLU) | 93% clear, 80% FHE | 2.9s/sample | `python demo/huggingface_demo.py` |
 | Transformer | Iris PolySoftmax p=4 | 89% cleartext | N/A (cleartext) | `python demo/transformer_demo.py` |
-| Security Benchmarks | All hardening features | 0.008% overhead | 411μs/inference | `python demo/security_benchmarks.py` |
+| Security Benchmarks | All hardening features | 0.009% overhead | 425μs/inference | `python demo/security_benchmarks.py` |
 
 *On 5-sample subset. Full 54-sample accuracy is 81.5%.
 
@@ -285,7 +285,7 @@ demo/
 └── transformer_demo.py       # FHE-compatible transformer demo
 tests/
 ├── test_hardening.py         # 66 unit tests (security, crypto, integration)
-└── test_adversarial.py       # 88 adversarial & fuzz tests
+└── test_adversarial.py       # 88 adversarial tests
 ```
 
 ---
