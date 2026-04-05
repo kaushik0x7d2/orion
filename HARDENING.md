@@ -2,7 +2,7 @@
 
 > **From Research Prototype to Deployable System: Hardening an FHE Framework for Private Neural Inference**
 
-This document describes the systematic hardening of [Orion](https://github.com/baahl-nyu/orion), an ASPLOS'25 Best Paper Award-winning Fully Homomorphic Encryption (FHE) framework for deep learning inference. We identified and fixed **8 vulnerabilities**, added **10 production features**, and validated correctness across **2 medical inference models** with **163 automated tests** (including 88 adversarial tests). Security overhead benchmarks show all hardening adds just **0.009%** to FHE inference time.
+This document describes the systematic hardening of [Orion](https://github.com/baahl-nyu/orion), an ASPLOS'25 Best Paper Award-winning Fully Homomorphic Encryption (FHE) framework for deep learning inference. We identified and fixed **8 vulnerabilities**, added **10 production features**, and validated correctness across **2 medical inference models** with **173 automated tests** (including 88 adversarial tests). Security overhead benchmarks show all hardening adds just **0.009%** to FHE inference time.
 
 ---
 
@@ -31,8 +31,8 @@ This document describes the systematic hardening of [Orion](https://github.com/b
 | Category | Count | Details |
 |----------|-------|---------|
 | Vulnerabilities fixed | 8 | 2 critical, 2 high, 3 medium, 1 low |
-| Production features | 8 | Parallel inference, memory management, caching, etc. |
-| Automated tests | 51 | All passing (42s on Windows 11) |
+| Production features | 10 | Parallel inference, memory management, caching, etc. |
+| Automated tests | 173 | All passing (42s on Windows 11) |
 | Demo models | 2 | Heart disease (SiLU), breast cancer (GELU) |
 | New code | ~3,500 lines | Across 15+ files |
 
@@ -166,11 +166,11 @@ if state:
 
 ### 4. Comprehensive Test Suite (`tests/test_hardening.py`)
 
-51 tests covering all hardening features:
+173 tests covering all hardening features:
 
 ```
 pytest tests/ -v
-# 51 passed in 42.14s
+# 173 passed in 42.14s
 
 # Test categories:
 #   - Config validation (7 tests)
@@ -281,7 +281,7 @@ Python-side: `threading.Lock()` on the `Scheme` class.
 
 ## Test Results
 
-### Automated Tests (51/51 passing)
+### Automated Tests (173/173 passing)
 
 ```
 Platform: Windows 11 Pro (10.0.26200)
@@ -289,7 +289,7 @@ Python:   3.13.7
 Go:       1.26.1
 GCC:      15.2.0 (MinGW-w64)
 
-51 passed in 42.14s
+173 passed in 42.14s
 ```
 
 ### FHE Inference — Heart Disease Model

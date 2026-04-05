@@ -2,7 +2,7 @@
 
 A production-hardened version of [Orion](https://github.com/baahl-nyu/orion) (ASPLOS'25 Best Paper), a PyTorch-integrated Fully Homomorphic Encryption framework that enables neural network inference on encrypted data.
 
-**What's new in v1.1.0:** 8 vulnerability fixes (including a critical Windows portability bug), 10 production features (HuggingFace conversion, FHE transformer layers), 163 automated tests (including 88 adversarial tests), security overhead benchmarks, and 7 demos. See [HARDENING.md](HARDENING.md) for the full technical report.
+**What's new in v1.1.0:** 8 vulnerability fixes (including a critical Windows portability bug), 10 production features (HuggingFace conversion, FHE transformer layers), 173 automated tests (including 88 adversarial tests and 13 integration tests against real Go/Lattigo FFI), security overhead benchmarks, and 7 demos. See [HARDENING.md](HARDENING.md) for the full technical report.
 
 ---
 
@@ -70,7 +70,7 @@ FHE Accuracy: 5/5 (100%)
 
 ```bash
 pytest tests/ -v
-# 163 passed in 103s
+# 173 passed in 110s
 ```
 
 ---
@@ -285,7 +285,8 @@ demo/
 └── transformer_demo.py       # FHE-compatible transformer demo
 tests/
 ├── test_hardening.py         # 66 unit tests (security, crypto, integration)
-└── test_adversarial.py       # 88 adversarial tests
+├── test_adversarial.py       # 88 adversarial tests
+└── test_integration_ffi.py   # 13 integration tests against real Go/Lattigo FFI
 ```
 
 ---
